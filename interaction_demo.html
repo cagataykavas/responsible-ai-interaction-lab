@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Responsible AI Interaction Lab</title>
+  <style>
+    :root{--bg:#f7f7fb;--card:#fff;--ink:#151526;--muted:#6f7285;--line:#e3e4ee;--violet:#6d5dfc;--soft:#efedff;--green:#17a673;--amber:#bd7c00;--red:#d6455d;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#ece9ff,transparent 28%),var(--bg);color:var(--ink)}
+    .shell{max-width:1160px;margin:auto;padding:34px 22px 80px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px}.brand{font-size:20px;font-weight:900;letter-spacing:-.04em}.brand span{color:var(--violet)}.tag{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:7px 10px;border-radius:999px;background:#fff}
+    .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:20px}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:0 15px 42px rgba(53,48,89,.07)}.eyebrow{font-size:11px;color:var(--violet);font-weight:900;letter-spacing:.16em;text-transform:uppercase}.card h1{font-size:34px;line-height:1.08;letter-spacing:-.045em;margin:10px 0}.card p{color:var(--muted);line-height:1.65}.decision{margin-top:22px;padding:20px;border:1px solid var(--line);border-radius:18px;background:#fafafe}.decision small{display:block;color:var(--muted);font-weight:700}.recommendation{font-size:26px;font-weight:900;margin:8px 0 4px}.confidence{display:flex;align-items:center;gap:10px;margin-top:12px}.bar{flex:1;height:8px;background:#e7e8f1;border-radius:999px;overflow:hidden}.bar i{display:block;height:100%;width:81%;background:linear-gradient(90deg,var(--violet),#a855f7)}
+    .evidence{display:grid;gap:9px;margin-top:16px}.e{padding:12px;border:1px solid var(--line);border-radius:13px;display:flex;gap:10px;align-items:flex-start}.e b{width:24px;height:24px;border-radius:8px;background:var(--soft);color:var(--violet);display:grid;place-items:center;font-size:11px}.e strong{font-size:13px}.e span{display:block;color:var(--muted);font-size:12px;margin-top:3px;line-height:1.5}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:18px}.actions button{border:1px solid var(--line);background:white;border-radius:12px;padding:12px;font-weight:800;cursor:pointer}.actions .accept{background:var(--violet);color:white;border:0}.variant{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.variant button{border:1px solid var(--line);border-radius:999px;padding:8px 10px;background:white;color:var(--muted);font-size:11px;cursor:pointer}.variant button.active{background:var(--soft);color:var(--violet);border-color:#cbc5ff}
+    .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}.metric{padding:16px;border-radius:15px;background:#fafafe;border:1px solid var(--line)}.metric span{font-size:11px;color:var(--muted)}.metric strong{display:block;font-size:24px;margin-top:4px}.good{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--amber)}
+    .note{margin-top:16px;padding:14px;border-left:4px solid var(--violet);background:var(--soft);border-radius:0 12px 12px 0;color:#534c90;font-size:12px;line-height:1.6}.audit{margin-top:15px;font-size:11px;color:var(--muted);padding:10px;border:1px dashed var(--line);border-radius:10px}
+    @media(max-width:820px){.hero{grid-template-columns:1fr}.card h1{font-size:29px}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <div class="top"><div class="brand">Responsible<span>AI</span> Lab</div><div class="tag">Synthetic interaction prototype</div></div>
+  <div class="hero">
+    <section class="card">
+      <div class="eyebrow">Reviewer experiment · case 042</div>
+      <h1>How much should the interface tell the human?</h1>
+      <p>Switch variants to see how the same AI recommendation can be framed differently. The experiment code measures agreement, harmful agreement, overrides and deferrals.</p>
+      <div class="variant">
+        <button onclick="variant('plain',this)">Recommendation only</button>
+        <button onclick="variant('confidence',this)">+ Confidence</button>
+        <button class="active" onclick="variant('evidence',this)">+ Evidence</button>
+        <button onclick="variant('defer',this)">Deferral policy</button>
+      </div>
+      <div class="decision">
+        <small>AI recommendation</small><div class="recommendation">Request human review</div>
+        <div class="confidence" id="confidence"><span>81%</span><div class="bar"><i></i></div></div>
+        <div class="evidence" id="evidence">
+          <div class="e"><b>E1</b><div><strong>Profile inconsistency</strong><span>Observed information conflicts with one synthetic source.</span></div></div>
+          <div class="e"><b>E2</b><div><strong>Evidence quality</strong><span>Two supporting records are high quality; one remains uncertain.</span></div></div>
+        </div>
+      </div>
+      <div class="actions"><button class="accept" onclick="record('agree')">Agree with AI</button><button onclick="record('override')">Override</button></div>
+      <div class="audit" id="audit">No simulated reviewer response yet.</div>
+    </section>
+    <aside class="card">
+      <div class="eyebrow">Experiment dashboard</div>
+      <h1 style="font-size:27px">Interaction quality</h1>
+      <p>Illustrative values only. Real experiment metrics are generated by <code>experiment.py</code>.</p>
+      <div class="metrics">
+        <div class="metric"><span>Human accuracy</span><strong class="good">78.6%</strong></div>
+        <div class="metric"><span>AI-human agreement</span><strong>72.1%</strong></div>
+        <div class="metric"><span>Harmful agreement</span><strong class="bad">6.4%</strong></div>
+        <div class="metric"><span>Beneficial overrides</span><strong class="good">11.8%</strong></div>
+        <div class="metric"><span>Deferral rate</span><strong class="warn">18.2%</strong></div>
+        <div class="metric"><span>Calibration ECE</span><strong>0.071</strong></div>
+      </div>
+      <div class="note"><strong>Design point:</strong> confidence is not authority. A high score can still be policy-ineligible for automation, while a low-confidence case may be better served by deferral than by showing a persuasive recommendation.</div>
+    </aside>
+  </div>
+</div>
+<script>
+function variant(name,button){
+  document.querySelectorAll('.variant button').forEach(b=>b.classList.remove('active'));button.classList.add('active');
+  const confidence=document.getElementById('confidence');const evidence=document.getElementById('evidence');
+  confidence.style.display=(name==='confidence'||name==='evidence')?'flex':'none';
+  evidence.style.display=name==='evidence'?'grid':'none';
+  const rec=document.querySelector('.recommendation');
+  rec.textContent=name==='defer'?'No automated recommendation — defer':'Request human review';
+}
+function record(action){document.getElementById('audit').textContent='Synthetic response · '+action+' · '+new Date().toISOString();}
+</script>
+</body>
+</html>
