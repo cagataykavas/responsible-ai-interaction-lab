@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import random
+
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
@@ -14,7 +16,6 @@ from experiment import (
     run_variant,
     simulate_human_response,
 )
-import random
 
 
 class PredictionInput(BaseModel):
