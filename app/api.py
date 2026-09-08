@@ -6,6 +6,7 @@ from dataclasses import asdict
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from evaluation import paired_experiment_report
 from experiment import (
     Prediction,
     Variant,
@@ -16,7 +17,6 @@ from experiment import (
     run_variant,
     simulate_human_response,
 )
-from evaluation import paired_experiment_report
 
 
 class PredictionInput(BaseModel):
