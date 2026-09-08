@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import random
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
 from math import sqrt
 from statistics import mean
-from typing import Iterable
-
-import random
 
 
 class Variant(str, Enum):

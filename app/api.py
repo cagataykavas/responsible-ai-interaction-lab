@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 import random
+from dataclasses import asdict
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
@@ -16,6 +16,7 @@ from experiment import (
     run_variant,
     simulate_human_response,
 )
+from evaluation import paired_experiment_report
 
 
 class PredictionInput(BaseModel):
@@ -46,13 +47,18 @@ class SyntheticExperimentRequest(BaseModel):
     treatment: Variant = Variant.DEFER_LOW_CONFIDENCE
 
 
+class PairedExperimentRequest(SyntheticExperimentRequest):
+    bootstrap_samples: int = Field(default=1000, ge=100, le=10000)
+    randomization_samples: int = Field(default=2000, ge=100, le=20000)
+
+
 def _prediction(row: PredictionInput) -> Prediction:
     return Prediction(**row.model_dump())
 
 
 app = FastAPI(
     title="Responsible AI Interaction Experiments",
-    version="0.2.0",
+    version="0.3.0",
     description=(
         "Executable experiments for calibration, deferral, automation bias and "
         "human-AI interaction variants using synthetic data."
@@ -110,3 +116,17 @@ def synthetic_compare(request: SyntheticExperimentRequest) -> dict:
         "calibration": asdict(calibration_report(predictions)),
         "comparison": asdict(compare_variants(baseline, treatment)),
     }
+
+
+@app.post("/synthetic/paired-compare")
+def synthetic_paired_compare(request: PairedExperimentRequest) -> dict:
+    predictions = generate_synthetic_predictions(count=request.count, seed=request.seed)
+    report = paired_experiment_report(
+        predictions,
+        baseline=request.baseline,
+        treatment=request.treatment,
+        seed=request.seed,
+        bootstrap_samples=request.bootstrap_samples,
+        randomization_samples=request.randomization_samples,
+    )
+    return asdict(report)

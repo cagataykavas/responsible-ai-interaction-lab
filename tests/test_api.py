@@ -72,3 +72,27 @@ def test_synthetic_comparison_is_reproducible() -> None:
     second = client.post("/synthetic/compare", json=request)
     assert first.status_code == 200
     assert first.json() == second.json()
+
+
+def test_paired_comparison_returns_uncertainty_and_randomization_test() -> None:
+    response = client.post(
+        "/synthetic/paired-compare",
+        json={
+            "count": 200,
+            "seed": 41,
+            "baseline": "recommendation_only",
+            "treatment": "defer_low_confidence",
+            "bootstrap_samples": 200,
+            "randomization_samples": 300,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["pairs"] == 200
+    assert payload["human_accuracy"]["metric"] == "human_accuracy"
+    assert 0 <= payload["human_accuracy"]["randomization_p_value"] <= 1
+    assert (
+        payload["human_accuracy"]["confidence_lower"]
+        <= payload["human_accuracy"]["confidence_upper"]
+    )

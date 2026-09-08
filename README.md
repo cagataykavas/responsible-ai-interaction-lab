@@ -33,7 +33,11 @@ flowchart LR
     E --> H
     F --> H
     H --> R[Outcome metrics]
-    R --> G[Automation-bias / trust analysis]
+    R --> P[Paired effect estimation]
+    P --> CI[Bootstrap confidence interval]
+    P --> RT[Randomization test]
+    CI --> G[Automation-bias / trust analysis]
+    RT --> G
 ```
 
 ## Core metrics
@@ -50,6 +54,26 @@ flowchart LR
 - deferral rate;
 - accuracy after deferral;
 - explanation-induced agreement delta.
+
+## Paired experiment design
+
+The original aggregate comparison ran baseline and treatment with unrelated random
+reviewer draws. That can make ordinary simulation noise look like an interface effect.
+The paired evaluator instead derives a stable random stream from each case ID and
+experiment seed, then evaluates both variants against the same latent reviewer draw.
+
+For human accuracy, harmful agreement and beneficial override, the report includes:
+
+- baseline and treatment means;
+- the paired absolute effect;
+- a percentile bootstrap confidence interval;
+- a two-sided paired sign-flip randomization p-value;
+- the number of matched cases.
+
+Case-level seeds do not depend on input order or Python's randomized string hash.
+Duplicate case IDs are rejected because they would violate the matched-unit contract.
+These statistics quantify uncertainty in the synthetic experiment only; they are not
+presented as findings about real reviewers.
 
 ## Interaction variants
 
@@ -73,7 +97,10 @@ If model confidence or policy conditions fail a threshold, the interface does no
 
 ```text
 responsible-ai-interaction-lab/
-├── experiment.py   # calibration, interaction simulation and metrics
+├── experiment.py       # calibration, interaction simulation and aggregate metrics
+├── evaluation.py       # matched responses, effect estimates, bootstrap and tests
+├── app/api.py          # calibration, interaction and paired-comparison HTTP API
+├── tests/              # deterministic metric, pairing, API and edge-case coverage
 └── README.md
 ```
 
@@ -82,6 +109,9 @@ responsible-ai-interaction-lab/
 ```bash
 python experiment.py
 ```
+
+The API also exposes `POST /synthetic/paired-compare` for a reproducible matched
+baseline/treatment report with uncertainty estimates.
 
 The demo produces synthetic probabilities and reviewer responses only. It is intended to demonstrate evaluation methodology, not to claim human-subject research results.
 
