@@ -16,12 +16,21 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
-      - run: ruff check experiment.py app tests
+      - run: ruff check .
       - run: pytest -q
       - run: python experiment.py
+      - name: Build wheel
+        run: python -m pip wheel . --no-deps --wheel-dir /tmp/dist
+      - name: Verify wheel outside source tree
+        run: |
+          python -m venv /tmp/wheelcheck
+          cd /tmp
+          /tmp/wheelcheck/bin/pip install /tmp/dist/*.whl
+          /tmp/wheelcheck/bin/python -c "from evaluation import paired_experiment_report; print(paired_experiment_report)"
 
   container:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t responsible-ai-interaction:ci .
+      - run: docker run --rm responsible-ai-interaction:ci python -c "from app.api import app; print(app.title)"

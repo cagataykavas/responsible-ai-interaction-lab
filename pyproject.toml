@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "responsible-ai-interaction"
-version = "0.2.0"
+version = "0.3.0"
 description = "Calibration and human-AI interaction experiment service"
 requires-python = ">=3.11"
 dependencies = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "pydantic>=2.8"]
@@ -13,7 +13,7 @@ dependencies = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "pydantic>=2.8"]
 dev = ["pytest>=8.0", "httpx>=0.27", "ruff>=0.6"]
 
 [tool.setuptools]
-py-modules = ["experiment"]
+py-modules = ["experiment", "evaluation"]
 packages = ["app"]
 
 [tool.ruff]
