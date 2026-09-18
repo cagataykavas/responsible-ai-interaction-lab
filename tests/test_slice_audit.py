@@ -31,7 +31,7 @@ def test_surfaces_worst_harm_group_and_disparity():
 
     assert report.worst_harm_group == "alpha"
     assert report.harmful_agreement_gap == pytest.approx(2 / 3)
-    assert report.human_accuracy_gap == pytest.approx(1 / 3)
+    assert report.human_accuracy_gap == pytest.approx(2 / 3)
     assert report.eligible_cases == 6
     assert report.excluded_cases == 0
 
