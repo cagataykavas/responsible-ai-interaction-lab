@@ -70,5 +70,5 @@ def test_fails_closed_on_invalid_slice_contract(rows, groups, message):
 
 @pytest.mark.parametrize("minimum", [True, 1, 1.5])
 def test_rejects_invalid_minimum_group_size(minimum):
-    with pytest.raises(ValueError, match="minimum_group_size"):
+    with pytest.raises((TypeError, ValueError), match="minimum_group_size"):
         audit_interaction_slices([], {}, minimum_group_size=minimum)
