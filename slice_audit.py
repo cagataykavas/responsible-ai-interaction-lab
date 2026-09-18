@@ -62,7 +62,7 @@ def audit_interaction_slices(
     claim that the threshold provides adequate statistical power.
     """
     if not isinstance(minimum_group_size, int) or isinstance(minimum_group_size, bool):
-        raise ValueError("minimum_group_size must be an integer")
+        raise TypeError("minimum_group_size must be an integer")
     if minimum_group_size < 2:
         raise ValueError("minimum_group_size must be at least 2")
 
