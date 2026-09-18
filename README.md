@@ -119,7 +119,6 @@ The demo produces synthetic probabilities and reviewer responses only. It is int
 
 **Responsible AI · Human Factors · Calibration · Human-in-the-loop · Automation Bias · Explainability · Experiment Design · AI Product Evaluation**
 
-
 ## Subgroup interaction-harm audit
 
 Aggregate accuracy can hide an interface that works well overall while increasing harmful
