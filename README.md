@@ -118,3 +118,24 @@ The demo produces synthetic probabilities and reviewer responses only. It is int
 ## Portfolio signal
 
 **Responsible AI · Human Factors · Calibration · Human-in-the-loop · Automation Bias · Explainability · Experiment Design · AI Product Evaluation**
+
+
+## Subgroup interaction-harm audit
+
+Aggregate accuracy can hide an interface that works well overall while increasing harmful
+agreement for one population slice. `audit_interaction_slices` joins simulated or observed
+responses to explicit case-to-group labels and reports, per eligible group:
+
+- human accuracy;
+- harmful agreement with an incorrect AI recommendation;
+- beneficial correction of an AI error;
+- deferral rate.
+
+The report identifies the worst harmful-agreement slice and computes max-minus-min gaps for
+harmful agreement and human accuracy. Duplicate case IDs, missing or empty labels, and invalid
+minimum-size policies fail closed. Groups below the configured minimum are excluded from
+comparisons but their case count remains visible, preventing silent disappearance.
+
+These descriptive gaps do not establish discrimination, causality, or statistical significance.
+The group definitions, minimum sample size, uncertainty method, intersectional coverage and
+real-world data collection protocol require domain and ethics review before deployment decisions.
