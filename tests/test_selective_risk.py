@@ -8,6 +8,7 @@ from app.selective_risk import (
     SelectiveRiskPolicy,
     area_under_risk_coverage,
     audit_selective_risk,
+    binomial_upper_bound,
     risk_coverage_curve,
 )
 from experiment import Prediction
@@ -45,6 +46,8 @@ def test_policy_separates_coverage_risk_and_error_capture() -> None:
     assert report.accepted
     assert report.coverage == 0.5
     assert report.selective_risk == 0.5
+    assert report.selective_risk_upper_bound is not None
+    assert report.selective_risk_upper_bound > report.selective_risk
     assert report.deferred_error_capture == 0.5
     assert report.automated_cases == report.deferred_cases == 2
 
@@ -62,7 +65,7 @@ def test_release_fails_each_prespecified_guardrail() -> None:
 
     assert report.violations == (
         "coverage_below_minimum",
-        "selective_risk_above_maximum",
+        "selective_risk_upper_bound_above_maximum",
         "aurc_above_maximum",
     )
 
@@ -73,6 +76,7 @@ def test_threshold_above_all_confidences_fails_closed() -> None:
     report = audit_selective_risk(rows, permissive_policy(threshold=0.9))
 
     assert report.selective_risk is None
+    assert report.selective_risk_upper_bound is None
     assert report.violations == ("no_automated_cases",)
 
 
@@ -120,6 +124,49 @@ def test_report_is_input_order_independent() -> None:
     )
 
 
+def test_finite_sample_bound_rejects_unsafe_zero_error_claim() -> None:
+    rows = [prediction(str(index), label=1, probability=0.99) for index in range(5)]
+    policy = SelectiveRiskPolicy(0.9, 0.0, 0.10, 1.0)
+
+    report = audit_selective_risk(rows, policy)
+
+    assert report.selective_risk == 0
+    assert report.selective_risk_upper_bound == pytest.approx(0.35111650076510126)
+    assert report.violations == ("selective_risk_upper_bound_above_maximum",)
+
+
+def test_more_zero_error_evidence_can_clear_same_risk_limit() -> None:
+    rows = [prediction(str(index), label=1, probability=0.99) for index in range(50)]
+    policy = SelectiveRiskPolicy(0.9, 0.0, 0.10, 1.0)
+
+    report = audit_selective_risk(rows, policy)
+
+    assert report.accepted
+    assert report.selective_risk_upper_bound is not None
+    assert report.selective_risk_upper_bound < 0.10
+
+
+def test_binomial_upper_bound_tightens_with_more_identical_evidence() -> None:
+    assert binomial_upper_bound(0, 100, 0.95) < binomial_upper_bound(0, 10, 0.95)
+
+
+@pytest.mark.parametrize(
+    ("errors", "cases", "confidence_level"),
+    [
+        (-1, 10, 0.95),
+        (11, 10, 0.95),
+        (0, 0, 0.95),
+        (0, 10, 0.5),
+        (0, 10, 1.0),
+    ],
+)
+def test_invalid_binomial_bound_input_is_rejected(
+    errors: int, cases: int, confidence_level: float
+) -> None:
+    with pytest.raises(ValueError):
+        binomial_upper_bound(errors, cases, confidence_level)
+
+
 @pytest.mark.parametrize(
     ("rows", "message"),
     [
@@ -147,6 +194,8 @@ def test_malformed_evaluation_inputs_are_rejected(rows: list[Prediction], messag
         SelectiveRiskPolicy(0.8, -0.1, 1, 1),
         SelectiveRiskPolicy(0.8, 0, 1.1, 1),
         SelectiveRiskPolicy(0.8, 0, 1, math.inf),
+        SelectiveRiskPolicy(0.8, 0, 1, 1, 0.5),
+        SelectiveRiskPolicy(0.8, 0, 1, 1, 1.0),
     ],
 )
 def test_invalid_policy_is_rejected(policy: SelectiveRiskPolicy) -> None:

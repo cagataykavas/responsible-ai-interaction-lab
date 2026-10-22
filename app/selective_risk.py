@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 from dataclasses import asdict, dataclass
+from statistics import NormalDist
 from typing import Any
 
 from experiment import Prediction, generate_synthetic_predictions
@@ -22,6 +23,7 @@ class SelectiveRiskPolicy:
     minimum_coverage: float
     maximum_selective_risk: float
     maximum_aurc: float
+    risk_confidence_level: float = 0.95
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +45,7 @@ class SelectiveRiskReport:
     deferred_cases: int
     coverage: float
     selective_risk: float | None
+    selective_risk_upper_bound: float | None
     deferred_error_capture: float | None
     area_under_risk_coverage: float
     violations: tuple[str, ...]
@@ -63,6 +66,32 @@ def _validate_policy(policy: SelectiveRiskPolicy) -> None:
     for name, value in asdict(policy).items():
         if not _is_number(value) or not math.isfinite(value) or not 0 <= value <= 1:
             raise ValueError(f"{name} must be a finite number in [0, 1]")
+    if not 0.5 < policy.risk_confidence_level < 1:
+        raise ValueError("risk_confidence_level must be greater than 0.5 and less than 1")
+
+
+def binomial_upper_bound(errors: int, cases: int, confidence_level: float) -> float:
+    """Return a one-sided Wilson upper confidence bound for a binomial error rate."""
+    if type(errors) is not int or type(cases) is not int:
+        raise ValueError("errors and cases must be integers")
+    if cases <= 0:
+        raise ValueError("cases must be positive")
+    if not 0 <= errors <= cases:
+        raise ValueError("errors must be between zero and cases")
+    if not _is_number(confidence_level) or not math.isfinite(confidence_level):
+        raise ValueError("confidence_level must be finite")
+    if not 0.5 < confidence_level < 1:
+        raise ValueError("confidence_level must be greater than 0.5 and less than 1")
+
+    observed = errors / cases
+    z = NormalDist().inv_cdf(confidence_level)
+    z_squared = z * z
+    denominator = 1 + z_squared / cases
+    center = (observed + z_squared / (2 * cases)) / denominator
+    margin = (z / denominator) * math.sqrt(
+        observed * (1 - observed) / cases + z_squared / (4 * cases * cases)
+    )
+    return min(1.0, center + margin)
 
 
 def _validate_predictions(predictions: list[Prediction]) -> None:
@@ -163,6 +192,15 @@ def audit_selective_risk(
     deferred_errors = sum(not row.correct for row in deferred)
     coverage = len(automated) / len(rows)
     selective_risk = automated_errors / len(automated) if automated else None
+    selective_risk_upper_bound = (
+        binomial_upper_bound(
+            automated_errors,
+            len(automated),
+            policy.risk_confidence_level,
+        )
+        if automated
+        else None
+    )
     error_capture = deferred_errors / total_errors if total_errors else None
 
     violations: list[str] = []
@@ -170,20 +208,24 @@ def audit_selective_risk(
         violations.append("no_automated_cases")
     if coverage < policy.minimum_coverage:
         violations.append("coverage_below_minimum")
-    if selective_risk is not None and selective_risk > policy.maximum_selective_risk:
-        violations.append("selective_risk_above_maximum")
+    if (
+        selective_risk_upper_bound is not None
+        and selective_risk_upper_bound > policy.maximum_selective_risk
+    ):
+        violations.append("selective_risk_upper_bound_above_maximum")
     if aurc > policy.maximum_aurc:
         violations.append("aurc_above_maximum")
 
     digest = _input_digest(rows)
     evidence_payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "input_digest": digest,
         "policy": asdict(policy),
         "cases": len(rows),
         "automated_cases": len(automated),
         "coverage": coverage,
         "selective_risk": selective_risk,
+        "selective_risk_upper_bound": selective_risk_upper_bound,
         "deferred_error_capture": error_capture,
         "area_under_risk_coverage": aurc,
         "violations": violations,
@@ -192,7 +234,7 @@ def audit_selective_risk(
         json.dumps(evidence_payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     return SelectiveRiskReport(
-        schema_version=1,
+        schema_version=2,
         input_digest=digest,
         evidence_id=evidence_id,
         cases=len(rows),
@@ -200,6 +242,7 @@ def audit_selective_risk(
         deferred_cases=len(deferred),
         coverage=coverage,
         selective_risk=selective_risk,
+        selective_risk_upper_bound=selective_risk_upper_bound,
         deferred_error_capture=error_capture,
         area_under_risk_coverage=aurc,
         violations=tuple(violations),
