@@ -83,6 +83,7 @@ def test_paired_comparison_returns_uncertainty_and_randomization_test() -> None:
             "treatment": "defer_low_confidence",
             "bootstrap_samples": 200,
             "randomization_samples": 300,
+            "familywise_alpha": 0.05,
         },
     )
 
@@ -91,6 +92,9 @@ def test_paired_comparison_returns_uncertainty_and_randomization_test() -> None:
     assert payload["pairs"] == 200
     assert payload["human_accuracy"]["metric"] == "human_accuracy"
     assert 0 <= payload["human_accuracy"]["randomization_p_value"] <= 1
+    assert payload["familywise_error"]["method"] == "holm_bonferroni"
+    assert payload["familywise_error"]["alpha"] == 0.05
+    assert len(payload["familywise_error"]["hypotheses"]) == 3
     assert (
         payload["human_accuracy"]["confidence_lower"]
         <= payload["human_accuracy"]["confidence_upper"]
