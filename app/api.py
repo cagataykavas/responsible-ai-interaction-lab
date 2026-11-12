@@ -50,6 +50,7 @@ class SyntheticExperimentRequest(BaseModel):
 class PairedExperimentRequest(SyntheticExperimentRequest):
     bootstrap_samples: int = Field(default=1000, ge=100, le=10000)
     randomization_samples: int = Field(default=2000, ge=100, le=20000)
+    familywise_alpha: float = Field(default=0.05, gt=0.0, lt=1.0)
 
 
 def _prediction(row: PredictionInput) -> Prediction:
@@ -128,5 +129,6 @@ def synthetic_paired_compare(request: PairedExperimentRequest) -> dict:
         seed=request.seed,
         bootstrap_samples=request.bootstrap_samples,
         randomization_samples=request.randomization_samples,
+        familywise_alpha=request.familywise_alpha,
     )
     return asdict(report)

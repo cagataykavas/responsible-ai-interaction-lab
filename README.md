@@ -68,7 +68,15 @@ For human accuracy, harmful agreement and beneficial override, the report includ
 - the paired absolute effect;
 - a percentile bootstrap confidence interval;
 - a two-sided paired sign-flip randomization p-value;
+- a Holm-Bonferroni adjusted p-value and decision across the three prespecified metrics;
 - the number of matched cases.
+
+The family-wise adjustment prevents an experiment from treating whichever of the
+three endpoints has the smallest unadjusted p-value as confirmatory evidence. Holm's
+step-down procedure controls the probability of one or more false rejections at the
+requested alpha without assuming independent endpoints. The percentile intervals are
+still metric-wise rather than simultaneous, and adding exploratory endpoints requires
+declaring a new hypothesis family.
 
 Case-level seeds do not depend on input order or Python's randomized string hash.
 Duplicate case IDs are rejected because they would violate the matched-unit contract.

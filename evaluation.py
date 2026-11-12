@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import random
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
+from math import isfinite
 from statistics import mean
 
 from experiment import HumanResponse, Prediction, Variant, simulate_human_response
@@ -29,6 +30,21 @@ class EffectEstimate:
 
 
 @dataclass(frozen=True, slots=True)
+class HypothesisAdjustment:
+    metric: str
+    raw_p_value: float
+    adjusted_p_value: float
+    rejected: bool
+
+
+@dataclass(frozen=True, slots=True)
+class FamilywiseErrorReport:
+    method: str
+    alpha: float
+    hypotheses: tuple[HypothesisAdjustment, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class PairedExperimentReport:
     baseline_variant: Variant
     treatment_variant: Variant
@@ -37,9 +53,53 @@ class PairedExperimentReport:
     human_accuracy: EffectEstimate
     harmful_agreement: EffectEstimate
     beneficial_override: EffectEstimate
+    familywise_error: FamilywiseErrorReport
 
 
 Metric = Callable[[HumanResponse], float]
+
+
+def holm_bonferroni(
+    p_values: Mapping[str, float],
+    *,
+    alpha: float = 0.05,
+) -> FamilywiseErrorReport:
+    """Adjust a prespecified family of p-values with Holm's step-down method.
+
+    The procedure controls the family-wise error rate without assuming that the
+    hypothesis tests are independent. Hypotheses are ordered by p-value and then
+    metric name so reports remain deterministic when p-values tie.
+    """
+    if not isfinite(alpha) or not 0 < alpha < 1:
+        raise ValueError("alpha must be finite and between zero and one")
+    if not p_values:
+        raise ValueError("at least one hypothesis is required")
+    if any(not metric.strip() for metric in p_values):
+        raise ValueError("hypothesis metric names must not be blank")
+    if any(not isfinite(value) or not 0 <= value <= 1 for value in p_values.values()):
+        raise ValueError("p-values must be finite and between zero and one")
+
+    ordered = sorted(p_values.items(), key=lambda item: (item[1], item[0]))
+    family_size = len(ordered)
+    running_adjusted = 0.0
+    hypotheses: list[HypothesisAdjustment] = []
+    for index, (metric, raw_p_value) in enumerate(ordered):
+        adjusted = min(1.0, (family_size - index) * raw_p_value)
+        running_adjusted = max(running_adjusted, adjusted)
+        hypotheses.append(
+            HypothesisAdjustment(
+                metric=metric,
+                raw_p_value=raw_p_value,
+                adjusted_p_value=running_adjusted,
+                rejected=running_adjusted <= alpha,
+            )
+        )
+
+    return FamilywiseErrorReport(
+        method="holm_bonferroni",
+        alpha=alpha,
+        hypotheses=tuple(hypotheses),
+    )
 
 
 def _case_seed(experiment_seed: int, case_id: str) -> int:
@@ -150,8 +210,7 @@ def estimate_paired_effect(
     extreme = 0
     for _ in range(randomization_samples):
         randomized = mean(
-            difference if rng.random() < 0.5 else -difference
-            for difference in differences
+            difference if rng.random() < 0.5 else -difference for difference in differences
         )
         extreme += abs(randomized) >= observed - 1e-12
     p_value = (extreme + 1) / (randomization_samples + 1)
@@ -176,7 +235,10 @@ def paired_experiment_report(
     seed: int,
     bootstrap_samples: int = 2000,
     randomization_samples: int = 4000,
+    familywise_alpha: float = 0.05,
 ) -> PairedExperimentReport:
+    if not isfinite(familywise_alpha) or not 0 < familywise_alpha < 1:
+        raise ValueError("familywise_alpha must be finite and between zero and one")
     observations = run_paired_responses(
         predictions,
         baseline=baseline,
@@ -194,20 +256,32 @@ def paired_experiment_report(
             randomization_samples=randomization_samples,
         )
 
+    human_accuracy = estimate("human_accuracy", lambda row: float(row.human_correct), 11)
+    harmful_agreement = estimate(
+        "harmful_agreement",
+        lambda row: float(row.agreed and not row.ai_correct),
+        23,
+    )
+    beneficial_override = estimate(
+        "beneficial_override",
+        lambda row: float(row.overridden and not row.ai_correct and row.human_correct),
+        37,
+    )
+    familywise_error = holm_bonferroni(
+        {
+            estimate.metric: estimate.randomization_p_value
+            for estimate in (human_accuracy, harmful_agreement, beneficial_override)
+        },
+        alpha=familywise_alpha,
+    )
+
     return PairedExperimentReport(
         baseline_variant=baseline,
         treatment_variant=treatment,
         seed=seed,
         pairs=len(observations),
-        human_accuracy=estimate("human_accuracy", lambda row: float(row.human_correct), 11),
-        harmful_agreement=estimate(
-            "harmful_agreement",
-            lambda row: float(row.agreed and not row.ai_correct),
-            23,
-        ),
-        beneficial_override=estimate(
-            "beneficial_override",
-            lambda row: float(row.overridden and not row.ai_correct and row.human_correct),
-            37,
-        ),
+        human_accuracy=human_accuracy,
+        harmful_agreement=harmful_agreement,
+        beneficial_override=beneficial_override,
+        familywise_error=familywise_error,
     )
