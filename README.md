@@ -75,6 +75,35 @@ Duplicate case IDs are rejected because they would violate the matched-unit cont
 These statistics quantify uncertainty in the synthetic experiment only; they are not
 presented as findings about real reviewers.
 
+## Explanation placebo audit
+
+An explanation can increase agreement because it is genuinely case-specific, or merely because
+it looks authoritative. `POST /explanations/placebo-audit` adds a negative control for that
+distinction:
+
+- sort cases by stable ID and create a seeded Sattolo derangement with no fixed assignments;
+- keep each model recommendation, outcome and evidence-quality value unchanged;
+- reassign only explanation quality across cases, preserving its exact marginal distribution;
+- run linked and placebo arms against identical per-case reviewer randomness;
+- estimate paired effects for human accuracy, harmful agreement and beneficial override;
+- gate on the lower accuracy-effect bound and upper harmful-agreement-effect bound;
+- return aggregate statistics plus a SHA-256 commitment, without returning case inputs or the
+  donor assignment.
+
+The default policy requires the linked arm's 95% lower confidence bound to improve accuracy by at
+least one percentage point, while its harmful-agreement upper bound must not increase. Thresholds
+are explicit inputs and should be calibrated before use.
+
+```bash
+curl -X POST http://localhost:8000/explanations/placebo-audit \
+  -H 'content-type: application/json' \
+  --data @placebo-audit.json
+```
+
+This audit tests the synthetic simulator and supplied quality labels. It does not establish that a
+real explanation is faithful, that explanation-quality scores are valid, or that real reviewers
+will respond similarly. Repeated/clustered reviewers and multiple testing need separate controls.
+
 ## Interaction variants
 
 ### Recommendation only
@@ -99,6 +128,7 @@ If model confidence or policy conditions fail a threshold, the interface does no
 responsible-ai-interaction-lab/
 ├── experiment.py       # calibration, interaction simulation and aggregate metrics
 ├── evaluation.py       # matched responses, effect estimates, bootstrap and tests
+├── placebo.py          # case-linked explanation negative-control audit
 ├── app/api.py          # calibration, interaction and paired-comparison HTTP API
 ├── tests/              # deterministic metric, pairing, API and edge-case coverage
 └── README.md
