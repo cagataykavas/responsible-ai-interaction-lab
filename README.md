@@ -75,6 +75,24 @@ Duplicate case IDs are rejected because they would violate the matched-unit cont
 These statistics quantify uncertainty in the synthetic experiment only; they are not
 presented as findings about real reviewers.
 
+## Selective-reliance audit
+
+Overall agreement cannot distinguish useful reliance from automation bias. `reliance.py` audits
+observed reviewer responses separately when the AI recommendation was correct and incorrect. It
+reports Wilson intervals for correct-AI agreement, harmful agreement with incorrect AI advice, and
+beneficial overrides, plus a conservative interval for the difference between correct and harmful
+reliance.
+
+The default gate requires at least 20 non-deferred cases in each AI-outcome stratum, a 95% lower
+bound of 0.70 for correct reliance, an upper bound of 0.30 for harmful reliance, and a lower-bound
+reliance gap of at least 0.30. Deferred cases remain visible in the report but do not count as
+reliance because the recommendation was not presented. Every report is bound to sorted case-level
+observations and policy thresholds with SHA-256.
+
+This is an offline release audit, not a claim that agreement is always desirable. Thresholds need
+domain calibration, Wilson bounds do not correct reviewer clustering, and ground-truth labels may
+arrive late or remain uncertain in real decision systems.
+
 ## Interaction variants
 
 ### Recommendation only
@@ -99,6 +117,7 @@ If model confidence or policy conditions fail a threshold, the interface does no
 responsible-ai-interaction-lab/
 ├── experiment.py       # calibration, interaction simulation and aggregate metrics
 ├── evaluation.py       # matched responses, effect estimates, bootstrap and tests
+├── reliance.py         # uncertainty-bounded selective-reliance release audit
 ├── app/api.py          # calibration, interaction and paired-comparison HTTP API
 ├── tests/              # deterministic metric, pairing, API and edge-case coverage
 └── README.md
