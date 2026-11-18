@@ -95,3 +95,39 @@ def test_paired_comparison_returns_uncertainty_and_randomization_test() -> None:
         payload["human_accuracy"]["confidence_lower"]
         <= payload["human_accuracy"]["confidence_upper"]
     )
+
+
+def test_pairwise_judge_order_audit_endpoint() -> None:
+    response = client.post(
+        "/judge/order-bias",
+        json={
+            "judgments": [
+                {"case_id": "stable", "order": "ab", "winner": "first"},
+                {"case_id": "stable", "order": "ba", "winner": "second"},
+                {"case_id": "position", "order": "ab", "winner": "first"},
+                {"case_id": "position", "order": "ba", "winner": "first"},
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    report = response.json()
+    assert report["pairs"] == 2
+    assert report["candidate_consistent_pairs"] == 1
+    assert report["position_driven_pairs"] == 1
+    assert report["position_driven_ci_lower"] < report["position_driven_ci_upper"]
+
+
+def test_pairwise_judge_order_audit_rejects_incomplete_pairs() -> None:
+    response = client.post(
+        "/judge/order-bias",
+        json={
+            "judgments": [
+                {"case_id": "incomplete", "order": "ab", "winner": "first"},
+                {"case_id": "other", "order": "ab", "winner": "second"},
+            ]
+        },
+    )
+
+    assert response.status_code == 422
+    assert "missing order" in response.json()["detail"]

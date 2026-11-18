@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from dataclasses import asdict
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from evaluation import paired_experiment_report
@@ -16,6 +16,12 @@ from experiment import (
     generate_synthetic_predictions,
     run_variant,
     simulate_human_response,
+)
+from judge_audit import (
+    CandidateOrder,
+    PairwiseJudgment,
+    Winner,
+    audit_pairwise_order_bias,
 )
 
 
@@ -52,13 +58,23 @@ class PairedExperimentRequest(SyntheticExperimentRequest):
     randomization_samples: int = Field(default=2000, ge=100, le=20000)
 
 
+class PairwiseJudgmentInput(BaseModel):
+    case_id: str = Field(min_length=1, max_length=256)
+    order: CandidateOrder
+    winner: Winner
+
+
+class JudgeOrderAuditRequest(BaseModel):
+    judgments: list[PairwiseJudgmentInput] = Field(min_length=2, max_length=100000)
+
+
 def _prediction(row: PredictionInput) -> Prediction:
     return Prediction(**row.model_dump())
 
 
 app = FastAPI(
     title="Responsible AI Interaction Experiments",
-    version="0.3.0",
+    version="0.4.0",
     description=(
         "Executable experiments for calibration, deferral, automation bias and "
         "human-AI interaction variants using synthetic data."
@@ -129,4 +145,20 @@ def synthetic_paired_compare(request: PairedExperimentRequest) -> dict:
         bootstrap_samples=request.bootstrap_samples,
         randomization_samples=request.randomization_samples,
     )
+    return asdict(report)
+
+
+@app.post("/judge/order-bias")
+def judge_order_bias(request: JudgeOrderAuditRequest) -> dict:
+    try:
+        report = audit_pairwise_order_bias(
+            PairwiseJudgment(
+                case_id=row.case_id,
+                order=row.order,
+                winner=row.winner,
+            )
+            for row in request.judgments
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     return asdict(report)
