@@ -16,6 +16,7 @@ The lab therefore treats interaction design as part of model risk.
 - How often do reviewers override the AI, and are overrides concentrated in low-confidence cases?
 - Does an explanation increase agreement even when the recommendation is wrong?
 - How does calibration affect a policy threshold for automation?
+- Does an LLM judge keep the same candidate preference when response order is swapped?
 
 ## Experiment architecture
 
@@ -38,6 +39,17 @@ flowchart LR
     P --> RT[Randomization test]
     CI --> G[Automation-bias / trust analysis]
     RT --> G
+```
+
+Pairwise LLM-judge observations also have a separate counterbalanced audit path:
+
+```mermaid
+flowchart LR
+    Q[Prompt + candidates] --> AB[Judge A then B]
+    Q --> BA[Judge B then A]
+    AB --> O[Order-pair validator]
+    BA --> O
+    O --> J[Consistency and position-bias evidence]
 ```
 
 ## Core metrics
@@ -75,6 +87,24 @@ Duplicate case IDs are rejected because they would violate the matched-unit cont
 These statistics quantify uncertainty in the synthetic experiment only; they are not
 presented as findings about real reviewers.
 
+## Pairwise LLM-judge order audit
+
+The `POST /judge/order-bias` endpoint accepts externally produced pairwise judge
+results. Every case must contain exactly one `ab` run and one `ba` run. The audit
+maps positional winners back to candidate identity and reports:
+
+- candidate-consistent pairs, where the same candidate wins after the swap;
+- position-driven pairs, where the same position wins and the selected candidate changes;
+- tie-consistent and mixed-tie pairs without coercing ties into preferences;
+- a 95% Wilson interval for the position-driven rate among non-tie pairs;
+- an exact two-sided binomial test for first- versus second-position direction among
+  position-driven pairs.
+
+Incomplete or duplicate order pairs fail closed with a validation error. The audit
+does not call or score an LLM itself: it evaluates recorded outputs, so model name,
+prompt template, decoding parameters and raw responses should be versioned by the
+calling evaluation system.
+
 ## Interaction variants
 
 ### Recommendation only
@@ -99,6 +129,7 @@ If model confidence or policy conditions fail a threshold, the interface does no
 responsible-ai-interaction-lab/
 ├── experiment.py       # calibration, interaction simulation and aggregate metrics
 ├── evaluation.py       # matched responses, effect estimates, bootstrap and tests
+├── judge_audit.py      # counterbalanced pairwise LLM-judge order audit
 ├── app/api.py          # calibration, interaction and paired-comparison HTTP API
 ├── tests/              # deterministic metric, pairing, API and edge-case coverage
 └── README.md
@@ -110,11 +141,12 @@ responsible-ai-interaction-lab/
 python experiment.py
 ```
 
-The API also exposes `POST /synthetic/paired-compare` for a reproducible matched
-baseline/treatment report with uncertainty estimates.
+The API exposes `POST /synthetic/paired-compare` for a reproducible matched
+baseline/treatment report and `POST /judge/order-bias` for counterbalanced judge
+consistency evidence.
 
 The demo produces synthetic probabilities and reviewer responses only. It is intended to demonstrate evaluation methodology, not to claim human-subject research results.
 
 ## Portfolio signal
 
-**Responsible AI · Human Factors · Calibration · Human-in-the-loop · Automation Bias · Explainability · Experiment Design · AI Product Evaluation**
+**Responsible AI · LLM Evaluation · Human Factors · Calibration · Human-in-the-loop · Automation Bias · Explainability · Experiment Design · AI Product Evaluation**
